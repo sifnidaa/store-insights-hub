@@ -4,16 +4,28 @@ import {
   initialProducts, initialSuppliers, initialInvoices, initialSales,
 } from "@/data/store-data";
 
+type StoreSettings = {
+  storeName: string;
+  storePhone: string;
+  storeAddress: string;
+};
+
 type StoreContextType = {
   products: Product[];
   suppliers: Supplier[];
   invoices: Invoice[];
   sales: Sale[];
+  settings: StoreSettings;
+  updateSettings: (s: StoreSettings) => void;
   addProduct: (p: Omit<Product, "id">) => void;
   updateProduct: (p: Product) => void;
   deleteProduct: (id: string) => void;
+  addSupplier: (s: Omit<Supplier, "id">) => void;
+  updateSupplier: (s: Supplier) => void;
+  deleteSupplier: (id: string) => void;
   addInvoice: (inv: Invoice, saleProfit: number) => void;
   deleteInvoice: (id: string) => void;
+  nextInvoiceNumber: () => string;
   isAuthenticated: boolean;
   login: (user: string, pass: string) => boolean;
   logout: () => void;
@@ -29,10 +41,18 @@ export const useStore = () => {
 
 export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [products, setProducts] = useState<Product[]>(initialProducts);
-  const [suppliers] = useState<Supplier[]>(initialSuppliers);
+  const [suppliers, setSuppliers] = useState<Supplier[]>(initialSuppliers);
   const [invoices, setInvoices] = useState<Invoice[]>(initialInvoices);
   const [sales, setSales] = useState<Sale[]>(initialSales);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [invoiceCounter, setInvoiceCounter] = useState(1001);
+  const [settings, setSettings] = useState<StoreSettings>({
+    storeName: "متجر التقنية",
+    storePhone: "0555000000",
+    storeAddress: "الجزائر العاصمة",
+  });
+
+  const updateSettings = useCallback((s: StoreSettings) => setSettings(s), []);
 
   const login = useCallback((user: string, pass: string) => {
     if (user === "admin" && pass === "admin123") {
@@ -43,6 +63,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, []);
 
   const logout = useCallback(() => setIsAuthenticated(false), []);
+
+  const nextInvoiceNumber = useCallback(() => {
+    const num = invoiceCounter;
+    setInvoiceCounter(prev => prev + 1);
+    return String(num).padStart(8, "0");
+  }, [invoiceCounter]);
 
   const addProduct = useCallback((p: Omit<Product, "id">) => {
     setProducts(prev => [...prev, { ...p, id: `p${Date.now()}` }]);
@@ -56,13 +82,24 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setProducts(prev => prev.filter(x => x.id !== id));
   }, []);
 
+  const addSupplier = useCallback((s: Omit<Supplier, "id">) => {
+    setSuppliers(prev => [...prev, { ...s, id: `s${Date.now()}` }]);
+  }, []);
+
+  const updateSupplier = useCallback((s: Supplier) => {
+    setSuppliers(prev => prev.map(x => (x.id === s.id ? s : x)));
+  }, []);
+
+  const deleteSupplier = useCallback((id: string) => {
+    setSuppliers(prev => prev.filter(x => x.id !== id));
+  }, []);
+
   const addInvoice = useCallback((inv: Invoice, saleProfit: number) => {
     setInvoices(prev => [...prev, inv]);
     setSales(prev => [
       ...prev,
       { id: `sale-${Date.now()}`, date: inv.date, invoiceId: inv.id, total: inv.total, profit: saleProfit, itemCount: inv.items.reduce((a, i) => a + i.quantity, 0) },
     ]);
-    // Reduce stock
     setProducts(prev =>
       prev.map(p => {
         const item = inv.items.find(i => i.productId === p.id);
@@ -79,9 +116,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   return (
     <StoreContext.Provider value={{
-      products, suppliers, invoices, sales,
+      products, suppliers, invoices, sales, settings, updateSettings,
       addProduct, updateProduct, deleteProduct,
-      addInvoice, deleteInvoice,
+      addSupplier, updateSupplier, deleteSupplier,
+      addInvoice, deleteInvoice, nextInvoiceNumber,
       isAuthenticated, login, logout,
     }}>
       {children}
