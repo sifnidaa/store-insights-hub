@@ -15,7 +15,8 @@ import { downloadInvoicePDF, formatInvoiceDate, printInvoicePDF, shareInvoiceWha
 type CartItem = { product: Product; quantity: number };
 
 const POS = () => {
-  const { products, addInvoice, nextInvoiceNumber, settings } = useStore();
+  const { products, addInvoice, nextInvoiceNumber, settings, isLoadingProducts } = useStore();
+  const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("الكل");
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -68,25 +69,36 @@ const POS = () => {
   const total = cart.reduce((a, c) => a + c.product.price * c.quantity, 0);
   const totalProfit = cart.reduce((a, c) => a + (c.product.price - c.product.cost) * c.quantity, 0);
 
-  const checkout = () => {
+  const checkout = async () => {
     if (cart.length === 0) { toast.error("السلة فارغة"); return; }
-    const invNumber = nextInvoiceNumber();
-    const inv = {
-      id: invNumber,
-      date: new Date().toISOString(),
-      items: cart.map(c => ({ productId: c.product.id, productName: c.product.name, quantity: c.quantity, price: c.product.price })),
-      total,
-      paymentMethod,
-      customerName: customerName || undefined,
-      customerPhone: customerPhone || undefined,
-    };
-    addInvoice(inv, totalProfit);
-    setReceiptInvoice(inv);
-    setIsReceiptOpen(true);
-    setCart([]);
-    setCustomerName("");
-    setCustomerPhone("");
-    toast.success(`تمت عملية البيع بنجاح - فاتورة رقم ${invNumber}`);
+    setIsCheckingOut(true);
+    try {
+      const invNumber = await nextInvoiceNumber();
+      const inv = {
+        id: invNumber,
+        date: new Date().toISOString(),
+        items: cart.map(c => ({ productId: c.product.id, productName: c.product.name, quantity: c.quantity, price: c.product.price })),
+        total,
+        paymentMethod,
+        customerName: customerName || undefined,
+        customerPhone: customerPhone || undefined,
+      };
+      const success = await addInvoice(inv, totalProfit);
+      if (success) {
+        setReceiptInvoice(inv);
+        setIsReceiptOpen(true);
+        setCart([]);
+        setCustomerName("");
+        setCustomerPhone("");
+        toast.success(`تمت عملية البيع بنجاح - فاتورة رقم ${invNumber}`);
+      } else {
+        toast.error("فشل إتمام عملية البيع");
+      }
+    } catch (err) {
+      toast.error("حدث خطأ غير متوقع");
+    } finally {
+      setIsCheckingOut(false);
+    }
   };
 
   const receiptActions = {
@@ -134,22 +146,28 @@ const POS = () => {
               ))}
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-              {filtered.map(p => (
-                <button
-                  key={p.id}
-                  onClick={() => addToCart(p)}
-                  className="bg-card rounded-xl p-3 text-right border hover:border-primary hover:shadow-md transition-all active:scale-[0.97] space-y-1"
-                >
-                  <p className="font-medium text-sm leading-tight line-clamp-2">{p.name}</p>
-                  <p className="text-xs text-muted-foreground">{p.category}</p>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">المخزون: {p.stock}</span>
-                    <span className="font-bold text-primary text-sm">{p.price} د.ج</span>
-                  </div>
-                </button>
-              ))}
-            </div>
+            {isLoadingProducts ? (
+              <div className="flex justify-center py-20">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                {filtered.map(p => (
+                  <button
+                    key={p.id}
+                    onClick={() => addToCart(p)}
+                    className="bg-card rounded-xl p-3 text-right border hover:border-primary hover:shadow-md transition-all active:scale-[0.97] space-y-1"
+                  >
+                    <p className="font-medium text-sm leading-tight line-clamp-2">{p.name}</p>
+                    <p className="text-xs text-muted-foreground">{p.category}</p>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-muted-foreground">المخزون: {p.stock}</span>
+                      <span className="font-bold text-primary text-sm">{p.price} د.ج</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Cart */}
@@ -208,8 +226,10 @@ const POS = () => {
                 <span>الإجمالي</span>
                 <span className="text-primary tabular-nums">{total.toLocaleString()} د.ج</span>
               </div>
-              <Button onClick={checkout} className="w-full h-11 active:scale-[0.97] transition-transform" disabled={cart.length === 0}>
-                <Check className="w-4 h-4" />
+              <Button onClick={checkout} className="w-full h-11 active:scale-[0.97] transition-transform" disabled={cart.length === 0 || isCheckingOut}>
+                {isCheckingOut ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                ) : <Check className="w-4 h-4" />}
                 إتمام البيع
               </Button>
             </div>

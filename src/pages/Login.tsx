@@ -1,26 +1,54 @@
-import { useState } from "react";
-import { useStore } from "@/contexts/StoreContext";
-import { useNavigate } from "react-router-dom";
-import { Smartphone, Lock, User } from "lucide-react";
+import { useState, useEffect } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useNavigate, useLocation } from "react-router-dom";
+import { Smartphone, Lock, User, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 const Login = () => {
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const { login, users } = useStore();
+  const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const { login, isAuthenticated, role, isLoadingAuth } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (isAuthenticated && role) {
+      navigate(role === "seller" ? "/pos" : "/dashboard");
+    }
+  }, [isAuthenticated, role, navigate]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (login(username, password)) {
-      const found = users.find(u => u.username === username && u.password === password);
-      navigate(found?.role === "seller" ? "/pos" : "/dashboard");
-    } else {
-      setError("اسم المستخدم أو كلمة المرور غير صحيحة");
+    setIsLoading(true);
+    setError("");
+    
+    try {
+      const result = await login(email, password);
+      if (result.success) {
+        // The StoreContext will update the currentUser and role automatically via onAuthStateChange
+        // But we wait a bit for the state to propagate or we can query the profile directly here if needed.
+        // For simplicity, we assume the navigation happens once the user is set in context.
+      } else {
+        setError(result.error || "اسم المستخدم أو كلمة المرور غير صحيحة");
+      }
+    } catch (err) {
+      setError("حدث خطأ أثناء تسجيل الدخول");
+    } finally {
+      setIsLoading(false);
     }
   };
+
+  if (isLoadingAuth) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-bl from-primary/10 via-background to-accent/10 p-4">
@@ -38,30 +66,45 @@ const Login = () => {
             <div className="relative">
               <User className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder="اسم المستخدم"
-                value={username}
-                onChange={e => { setUsername(e.target.value); setError(""); }}
+                type="email"
+                placeholder="البريد الإلكتروني"
+                value={email}
+                onChange={e => { setEmail(e.target.value); setError(""); }}
                 className="pr-10 text-right"
+                disabled={isLoading}
               />
             </div>
             <div className="relative">
               <Lock className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                type="password"
+                type={showPassword ? "text" : "password"}
                 placeholder="كلمة المرور"
                 value={password}
                 onChange={e => { setPassword(e.target.value); setError(""); }}
-                className="pr-10 text-right"
+                disabled={isLoading}
+                className="pr-10 pl-10 text-right"
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                tabIndex={-1}
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
             </div>
-            {error && <p className="text-destructive text-sm text-center">{error}</p>}
-            <Button type="submit" className="w-full h-11 text-base active:scale-[0.97] transition-transform">
-              تسجيل الدخول
+            {error && (
+              <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 animate-pulse text-destructive text-sm text-center">
+                {error}
+              </div>
+            )}
+            <Button type="submit" className="w-full h-11 text-base active:scale-[0.97] transition-transform" disabled={isLoading}>
+              {isLoading ? "جاري التحميل..." : "تسجيل الدخول"}
             </Button>
           </form>
 
           <p className="text-xs text-center text-muted-foreground">
-            المستخدم: admin | كلمة المرور: admin123
+            المسؤول: admin@test.com | البائع: seller@test.com
           </p>
         </div>
       </div>

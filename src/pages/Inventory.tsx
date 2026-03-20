@@ -4,16 +4,16 @@ import { useStore } from "@/contexts/StoreContext";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { categories } from "@/data/store-data";
-import { Search, Package, AlertTriangle, Plus, Pencil, Trash2, Download } from "lucide-react";
+import { Search, Package, AlertTriangle, Plus, Pencil, Trash2, Download, DollarSign } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import type { Product } from "@/data/store-data";
+import type { Product, Supplier } from "@/data/store-data";
 import * as XLSX from "xlsx";
 
 const Inventory = () => {
-  const { products, addProduct, updateProduct, deleteProduct, suppliers } = useStore();
+  const { products, addProduct, updateProduct, deleteProduct, suppliers, isLoadingProducts } = useStore();
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("الكل");
   const [editProduct, setEditProduct] = useState<Product | null>(null);
@@ -33,18 +33,24 @@ const Inventory = () => {
 
   const resetForm = () => setForm({ name: "", category: categories[0], price: 0, cost: 0, stock: 0, minStock: 0, sku: "", supplier: "" });
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.name.trim()) { toast.error("أدخل اسم المنتج"); return; }
+    let success = false;
     if (editProduct) {
-      updateProduct({ ...editProduct, ...form });
-      toast.success("تم تحديث المنتج");
-      setEditProduct(null);
+      success = await updateProduct({ ...editProduct, ...form });
+      if (success) {
+        toast.success("تم تحديث المنتج");
+        setEditProduct(null);
+      }
     } else {
-      addProduct(form);
-      toast.success("تم إضافة المنتج");
-      setIsAddOpen(false);
+      success = await addProduct(form);
+      if (success) {
+        toast.success("تم إضافة المنتج");
+        setIsAddOpen(false);
+      }
     }
-    resetForm();
+    if (success) resetForm();
+    else toast.error("فشل تنفيذ العملية");
   };
 
   const openEdit = (p: Product) => {
@@ -81,23 +87,69 @@ const Inventory = () => {
   };
 
   const ProductForm = () => (
-    <div className="space-y-3">
-      <Input placeholder="اسم المنتج" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
-      <select className="w-full h-10 rounded-lg border bg-background px-3 text-sm" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
-        {categories.map(c => <option key={c} value={c}>{c}</option>)}
-      </select>
-      <div className="grid grid-cols-2 gap-2">
-        <Input type="number" placeholder="سعر البيع" value={form.price || ""} onChange={e => setForm(f => ({ ...f, price: +e.target.value }))} />
-        <Input type="number" placeholder="سعر التكلفة" value={form.cost || ""} onChange={e => setForm(f => ({ ...f, cost: +e.target.value }))} />
-        <Input type="number" placeholder="الكمية" value={form.stock || ""} onChange={e => setForm(f => ({ ...f, stock: +e.target.value }))} />
-        <Input type="number" placeholder="الحد الأدنى" value={form.minStock || ""} onChange={e => setForm(f => ({ ...f, minStock: +e.target.value }))} />
+    <div className="space-y-6 py-2">
+      <div className="space-y-4">
+        <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2 border-b pb-2">
+          <Package className="w-4 h-4" /> معلومات المنتج الأساسية
+        </h3>
+        <div className="space-y-2">
+          <label className="text-xs font-medium pr-1">اسم المنتج</label>
+          <Input placeholder="مثال: آيفون 15 برو" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <label className="text-xs font-medium pr-1">القسم</label>
+            <select className="w-full h-10 rounded-lg border bg-background px-3 text-sm" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
+              {categories.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs font-medium pr-1">رمز المنتج (SKU)</label>
+            <Input placeholder="IPH15P" value={form.sku} onChange={e => setForm(f => ({ ...f, sku: e.target.value }))} />
+          </div>
+        </div>
       </div>
-      <Input placeholder="رمز المنتج SKU" value={form.sku} onChange={e => setForm(f => ({ ...f, sku: e.target.value }))} />
-      <select className="w-full h-10 rounded-lg border bg-background px-3 text-sm" value={form.supplier} onChange={e => setForm(f => ({ ...f, supplier: e.target.value }))}>
-        <option value="">بدون مورد</option>
-        {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-      </select>
-      <Button onClick={handleSave} className="w-full">{editProduct ? "تحديث" : "إضافة"}</Button>
+
+      <div className="space-y-4">
+        <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2 border-b pb-2">
+          <DollarSign className="w-4 h-4" /> التسعير
+        </h3>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <label className="text-xs font-medium pr-1 text-profit">سعر البيع (د.ج)</label>
+            <Input type="number" placeholder="0.00" value={form.price || ""} onChange={e => setForm(f => ({ ...f, price: +e.target.value }))} className="font-bold text-primary" />
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs font-medium pr-1 text-muted-foreground">سعر التكلفة (د.ج)</label>
+            <Input type="number" placeholder="0.00" value={form.cost || ""} onChange={e => setForm(f => ({ ...f, cost: +e.target.value }))} />
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2 border-b pb-2">
+          <AlertTriangle className="w-4 h-4" /> المخزون والمورد
+        </h3>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <label className="text-xs font-medium pr-1">الكمية الحالية</label>
+            <Input type="number" placeholder="0" value={form.stock || ""} onChange={e => setForm(f => ({ ...f, stock: +e.target.value }))} />
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs font-medium pr-1 text-warning">تنبيه عند وصول</label>
+            <Input type="number" placeholder="5" value={form.minStock || ""} onChange={e => setForm(f => ({ ...f, minStock: +e.target.value }))} />
+          </div>
+        </div>
+        <div className="space-y-2">
+          <label className="text-xs font-medium pr-1">المورد المفترض</label>
+          <select className="w-full h-10 rounded-lg border bg-background px-3 text-sm" value={form.supplier} onChange={e => setForm(f => ({ ...f, supplier: e.target.value }))}>
+            <option value="">بدون مورد</option>
+            {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+        </div>
+      </div>
+      
+      <Button onClick={handleSave} className="w-full h-11 text-base font-bold active:scale-[0.98] transition-transform">{editProduct ? "تحديث م بيانات المنتج" : "إضافة المنتج للمخزون"}</Button>
     </div>
   );
 
@@ -117,8 +169,8 @@ const Inventory = () => {
               <DialogTrigger asChild>
                 <Button size="sm"><Plus className="w-4 h-4" /> إضافة منتج</Button>
               </DialogTrigger>
-              <DialogContent>
-                <DialogHeader><DialogTitle>إضافة منتج جديد</DialogTitle></DialogHeader>
+              <DialogContent className="max-w-md sm:max-w-lg max-h-[90vh] overflow-y-auto">
+                <DialogHeader><DialogTitle>{editProduct ? "تعديل المنتج" : "إضافة منتج جديد"}</DialogTitle></DialogHeader>
                 <ProductForm />
               </DialogContent>
             </Dialog>
@@ -136,8 +188,14 @@ const Inventory = () => {
           </select>
         </div>
 
-        {/* Desktop Table */}
-        <div className="hidden md:block bg-card rounded-xl border overflow-x-auto">
+        {isLoadingProducts ? (
+          <div className="flex justify-center py-20">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          </div>
+        ) : (
+          <>
+            {/* Desktop Table */}
+            <div className="hidden md:block bg-card rounded-xl border overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-muted/50">
@@ -260,6 +318,8 @@ const Inventory = () => {
             })
           )}
         </div>
+          </>
+        )}
       </div>
     </DashboardLayout>
   );

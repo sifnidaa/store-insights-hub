@@ -9,25 +9,31 @@ import { toast } from "sonner";
 import type { Supplier } from "@/data/store-data";
 
 const Suppliers = () => {
-  const { suppliers, addSupplier, updateSupplier, deleteSupplier } = useStore();
+  const { suppliers, addSupplier, updateSupplier, deleteSupplier, isLoadingSuppliers } = useStore();
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editSupplier, setEditSupplier] = useState<Supplier | null>(null);
   const [form, setForm] = useState({ name: "", phone: "", email: "", address: "", totalPurchases: 0 });
 
   const resetForm = () => setForm({ name: "", phone: "", email: "", address: "", totalPurchases: 0 });
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.name.trim()) { toast.error("أدخل اسم المورد"); return; }
+    let success = false;
     if (editSupplier) {
-      updateSupplier({ ...editSupplier, ...form });
-      toast.success("تم تحديث المورد");
-      setEditSupplier(null);
+      success = await updateSupplier({ ...editSupplier, ...form });
+      if (success) {
+        toast.success("تم تحديث المورد");
+        setEditSupplier(null);
+      }
     } else {
-      addSupplier(form);
-      toast.success("تم إضافة المورد");
-      setIsAddOpen(false);
+      success = await addSupplier(form);
+      if (success) {
+        toast.success("تم إضافة المورد");
+        setIsAddOpen(false);
+      }
     }
-    resetForm();
+    if (success) resetForm();
+    else toast.error("حدث خطأ ما");
   };
 
   const openEdit = (s: Supplier) => {
@@ -36,13 +42,63 @@ const Suppliers = () => {
   };
 
   const SupplierForm = () => (
-    <div className="space-y-3">
-      <Input placeholder="اسم المورد" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
-      <Input placeholder="رقم الهاتف" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
-      <Input placeholder="البريد الإلكتروني" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
-      <Input placeholder="العنوان" value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} />
-      <Input type="number" placeholder="إجمالي المشتريات" value={form.totalPurchases || ""} onChange={e => setForm(f => ({ ...f, totalPurchases: +e.target.value }))} />
-      <Button onClick={handleSave} className="w-full">{editSupplier ? "تحديث" : "إضافة"}</Button>
+    <div className="space-y-6 py-2">
+      <div className="space-y-4">
+        <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2 border-b pb-2">
+          <Users className="w-4 h-4" /> هوية المورد
+        </h3>
+        <div className="space-y-2">
+          <label className="text-xs font-medium pr-1 text-foreground">اسم المورد الكامل</label>
+          <div className="relative">
+            <Users className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input placeholder="مثال: شركة سامسونج الرسمية" className="pr-10" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2 border-b pb-2">
+          <Phone className="w-4 h-4" /> معلومات الاتصال
+        </h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <label className="text-xs font-medium pr-1">رقم الهاتف</label>
+            <div className="relative">
+              <Phone className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input placeholder="0555000000" className="pr-10 font-mono" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs font-medium pr-1">البريد الإلكتروني</label>
+            <div className="relative">
+              <Mail className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input placeholder="contact@supplier.com" className="pr-10 font-mono" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+            </div>
+          </div>
+        </div>
+        <div className="space-y-2">
+          <label className="text-xs font-medium pr-1">العنوان الجغرافي</label>
+          <div className="relative">
+            <MapPin className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input placeholder="المنطقة الصناعية، الجزائر" className="pr-10" value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} />
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2 border-b pb-2">
+          <DollarSign className="w-4 h-4" /> البيانات المالية
+        </h3>
+        <div className="space-y-2">
+          <label className="text-xs font-medium pr-1 text-profit">إجمالي قيمة المشتريات (د.ج)</label>
+          <div className="relative">
+            <DollarSign className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input type="number" placeholder="0" className="pr-10 font-bold" value={form.totalPurchases || ""} onChange={e => setForm(f => ({ ...f, totalPurchases: +e.target.value }))} />
+          </div>
+        </div>
+      </div>
+
+      <Button onClick={handleSave} className="w-full h-11 text-base font-bold active:scale-[0.98] transition-transform">{editSupplier ? "تحديث بيانات المورد" : "إضافة المورد للقائمة"}</Button>
     </div>
   );
 
@@ -65,7 +121,13 @@ const Suppliers = () => {
           </Dialog>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {isLoadingSuppliers ? (
+          <div className="flex justify-center py-20">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {suppliers.map(s => (
             <div key={s.id} className="bg-card rounded-xl border p-4 space-y-3 hover:shadow-md transition-shadow">
               <div className="flex items-start justify-between">
@@ -97,6 +159,8 @@ const Suppliers = () => {
           ))}
         </div>
         {suppliers.length === 0 && <p className="text-center py-8 text-muted-foreground">لا يوجد موردين</p>}
+          </>
+        )}
       </div>
     </DashboardLayout>
   );

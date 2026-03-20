@@ -1,6 +1,7 @@
 import { useState } from "react";
 import DashboardLayout from "@/components/DashboardLayout";
 import { useStore } from "@/contexts/StoreContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Settings as SettingsIcon, Save } from "lucide-react";
@@ -9,27 +10,23 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 
 const Settings = () => {
-  const { settings, updateSettings, role, users, addUser, deleteUser } = useStore();
+  const { settings, updateSettings } = useStore();
+  const { role } = useAuth();
   const [form, setForm] = useState(settings);
 
   const isAdmin = role === "admin";
 
-  const [newUser, setNewUser] = useState({
-    username: "",
-    password: "",
-    role: "seller" as "admin" | "seller",
-  });
-
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.storeName.trim()) { toast.error("أدخل اسم المتجر"); return; }
-    updateSettings(form);
-    toast.success("تم حفظ الإعدادات");
+    const success = await updateSettings(form);
+    if (success) toast.success("تم حفظ الإعدادات");
+    else toast.error("فشل حفظ الإعدادات");
   };
 
-  const applyTheme = (theme: "light" | "dark") => {
+  const applyTheme = async (theme: "light" | "dark") => {
     const next = { ...form, theme };
     setForm(next);
-    updateSettings(next);
+    await updateSettings(next);
   };
 
   const handleLogoUpload = async (file: File | null) => {
@@ -43,7 +40,7 @@ const Settings = () => {
     reader.onload = () => {
       const dataUrl = typeof reader.result === "string" ? reader.result : null;
       if (!dataUrl) return;
-      const next = { ...form, logoDataUrl: dataUrl };
+      const next = { ...form, logoUrl: dataUrl };
       setForm(next);
       updateSettings(next);
       toast.success("تم تحديث شعار المتجر");
@@ -52,23 +49,13 @@ const Settings = () => {
   };
 
   const handleRemoveLogo = () => {
-    const next = { ...form, logoDataUrl: null };
+    const next = { ...form, logoUrl: null };
     setForm(next);
     updateSettings(next);
     toast.success("تم إزالة الشعار");
   };
 
-  const handleAddUser = () => {
-    if (!newUser.username.trim()) { toast.error("أدخل اسم المستخدم"); return; }
-    if (!newUser.password.trim()) { toast.error("أدخل كلمة المرور"); return; }
-
-    const exists = users.some(u => u.username === newUser.username);
-    if (exists) { toast.error("اسم المستخدم موجود مسبقا"); return; }
-
-    addUser({ username: newUser.username.trim(), password: newUser.password, role: newUser.role });
-    toast.success("تم إضافة المستخدم");
-    setNewUser({ username: "", password: "", role: "seller" });
-  };
+  // User management is now handled via Supabase dashboard or admin API
 
   return (
     <DashboardLayout allowedRoles={["admin", "seller"]}>
@@ -95,8 +82,8 @@ const Settings = () => {
             <Label>شعار المتجر</Label>
             <div className="flex items-center gap-3">
               <div className="w-14 h-14 rounded-xl bg-muted/50 border flex items-center justify-center overflow-hidden">
-                {form.logoDataUrl ? (
-                  <img src={form.logoDataUrl} alt="logo" className="w-full h-full object-contain" />
+                {form.logoUrl ? (
+                  <img src={form.logoUrl} alt="logo" className="w-full h-full object-contain" />
                 ) : (
                   <div className="text-xs text-muted-foreground">بدون شعار</div>
                 )}
@@ -108,7 +95,7 @@ const Settings = () => {
                   onChange={e => handleLogoUpload(e.target.files?.[0] ?? null)}
                 />
                 <div className="flex gap-2">
-                  <Button variant="outline" className="flex-1" onClick={handleRemoveLogo} disabled={!form.logoDataUrl}>
+                  <Button variant="outline" className="flex-1" onClick={handleRemoveLogo} disabled={!form.logoUrl}>
                     إزالة
                   </Button>
                 </div>
@@ -138,70 +125,7 @@ const Settings = () => {
         {isAdmin && (
           <div className="bg-card rounded-xl border p-6 space-y-4">
             <h2 className="text-lg font-semibold">إدارة المستخدمين</h2>
-
-            <div className="space-y-3">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Input
-                  placeholder="اسم المستخدم"
-                  value={newUser.username}
-                  onChange={e => setNewUser(n => ({ ...n, username: e.target.value }))}
-                />
-                <Input
-                  placeholder="كلمة المرور"
-                  type="password"
-                  value={newUser.password}
-                  onChange={e => setNewUser(n => ({ ...n, password: e.target.value }))}
-                />
-              </div>
-
-              <select
-                className="w-full h-10 rounded-lg border bg-background px-3 text-sm"
-                value={newUser.role}
-                onChange={e => setNewUser(n => ({ ...n, role: e.target.value as "admin" | "seller" }))}
-              >
-                <option value="admin">admin</option>
-                <option value="seller">seller</option>
-              </select>
-
-              <Button onClick={handleAddUser} className="w-full">
-                إضافة مستخدم
-              </Button>
-            </div>
-
-            <div className="border-t pt-4 space-y-3">
-              <h3 className="text-sm font-semibold text-muted-foreground">المستخدمون</h3>
-              {users.length === 0 ? (
-                <p className="text-sm text-muted-foreground">لا يوجد مستخدمين</p>
-              ) : (
-                <div className="space-y-2">
-                  {users.map(u => (
-                    <div key={u.id} className="flex items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="font-medium truncate">{u.username}</div>
-                        <div className="text-xs text-muted-foreground">{u.role}</div>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-destructive"
-                        onClick={() => {
-                          // Optional: prevent deleting the last admin.
-                          if (u.role === "admin" && users.filter(x => x.role === "admin").length <= 1) {
-                            toast.error("لا يمكن حذف آخر admin");
-                            return;
-                          }
-                          deleteUser(u.id);
-                          toast.success("تم حذف المستخدم");
-                        }}
-                        disabled={u.username === "admin" && u.role === "admin" && users.filter(x => x.role === "admin").length <= 1}
-                      >
-                        حذف
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            <p className="text-sm text-muted-foreground">يتم إدارة المستخدمين والأدوار من خلال لوحة تحكم Supabase.</p>
           </div>
         )}
       </div>
