@@ -46,7 +46,7 @@ const Dashboard = () => {
   const periodLabel = period === "daily" ? "اليوم" : period === "weekly" ? "هذا الأسبوع" : "هذا الشهر";
 
   return (
-    <DashboardLayout>
+    <DashboardLayout allowedRoles={["admin"]}>
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>

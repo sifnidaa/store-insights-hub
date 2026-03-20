@@ -9,13 +9,14 @@ const Login = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const { login } = useStore();
+  const { login, users } = useStore();
   const navigate = useNavigate();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (login(username, password)) {
-      navigate("/dashboard");
+      const found = users.find(u => u.username === username && u.password === password);
+      navigate(found?.role === "seller" ? "/pos" : "/dashboard");
     } else {
       setError("اسم المستخدم أو كلمة المرور غير صحيحة");
     }

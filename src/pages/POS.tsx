@@ -3,21 +3,27 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { useStore } from "@/contexts/StoreContext";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { categories, Product } from "@/data/store-data";
-import { Search, Plus, Minus, Trash2, ShoppingCart, Check } from "lucide-react";
+import { categories, Product, type Invoice } from "@/data/store-data";
+import { Search, Plus, Minus, Trash2, ShoppingCart, Check, Download, Printer, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import Calculator from "@/components/Calculator";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import { downloadInvoicePDF, formatInvoiceDate, printInvoicePDF, shareInvoiceWhatsApp } from "@/lib/invoicePdf";
 
 type CartItem = { product: Product; quantity: number };
 
 const POS = () => {
-  const { products, addInvoice, nextInvoiceNumber } = useStore();
+  const { products, addInvoice, nextInvoiceNumber, settings } = useStore();
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("الكل");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("نقدي");
+  const [receiptInvoice, setReceiptInvoice] = useState<Invoice | null>(null);
+  const [isReceiptOpen, setIsReceiptOpen] = useState(false);
 
   const filtered = useMemo(() => {
     return products.filter(p => {
@@ -75,14 +81,32 @@ const POS = () => {
       customerPhone: customerPhone || undefined,
     };
     addInvoice(inv, totalProfit);
+    setReceiptInvoice(inv);
+    setIsReceiptOpen(true);
     setCart([]);
     setCustomerName("");
     setCustomerPhone("");
     toast.success(`تمت عملية البيع بنجاح - فاتورة رقم ${invNumber}`);
   };
 
+  const receiptActions = {
+    download: () => {
+      if (!receiptInvoice) return;
+      downloadInvoicePDF(receiptInvoice, settings);
+      toast.success("تم تحميل فاتورة PDF");
+    },
+    print: () => {
+      if (!receiptInvoice) return;
+      printInvoicePDF(receiptInvoice, settings);
+    },
+    whatsapp: () => {
+      if (!receiptInvoice) return;
+      shareInvoiceWhatsApp(receiptInvoice, settings);
+    },
+  };
+
   return (
-    <DashboardLayout>
+    <DashboardLayout allowedRoles={["admin", "seller"]}>
       <div className="space-y-4">
         <h1 className="text-2xl font-bold">نقطة البيع</h1>
 
@@ -143,7 +167,12 @@ const POS = () => {
                   <div key={c.product.id} className="flex items-center gap-2 bg-muted/50 rounded-lg p-2">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{c.product.name}</p>
-                      <p className="text-xs text-muted-foreground">{c.product.price} د.ج</p>
+                      <p className="text-xs text-muted-foreground">
+                        {c.product.price} د.ج (للوحدة)
+                      </p>
+                      <p className="text-xs text-primary tabular-nums">
+                        المجموع: {(c.product.price * c.quantity).toLocaleString()} د.ج
+                      </p>
                     </div>
                     <div className="flex items-center gap-1">
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => updateQuantity(c.product.id, -1)}>
@@ -188,6 +217,81 @@ const POS = () => {
         </div>
       </div>
       <Calculator />
+
+      {/* Receipt Dialog */}
+      <Dialog
+        open={isReceiptOpen}
+        onOpenChange={(o) => {
+          setIsReceiptOpen(o);
+          if (!o) setReceiptInvoice(null);
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>فاتورة {receiptInvoice?.id}</DialogTitle>
+          </DialogHeader>
+
+          {receiptInvoice && (
+            <div className="space-y-3 text-sm">
+              <p className="font-bold text-center text-primary">{settings.storeName}</p>
+              <p className="text-center text-xs text-muted-foreground">
+                {formatInvoiceDate(receiptInvoice.date)}
+              </p>
+
+              {receiptInvoice.customerName && (
+                <p><strong>العميل:</strong> {receiptInvoice.customerName}</p>
+              )}
+              {receiptInvoice.customerPhone && (
+                <p><strong>الهاتف:</strong> {receiptInvoice.customerPhone}</p>
+              )}
+
+              <div className="border rounded-lg overflow-hidden">
+                <div className="p-2 bg-muted/50 text-xs font-medium flex items-center justify-between">
+                  <span>المنتج</span>
+                  <span>المجموع</span>
+                </div>
+                <div className="divide-y">
+                  {receiptInvoice.items.map((item, idx) => (
+                    <div key={`${item.productId}-${idx}`} className="p-2 flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate font-medium">{item.productName}</p>
+                        <p className="text-xs text-muted-foreground tabular-nums">
+                          {item.quantity} × {item.price} د.ج
+                        </p>
+                      </div>
+                      <p className="text-xs font-medium tabular-nums">
+                        {(item.price * item.quantity).toLocaleString()} د.ج
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex justify-between font-bold text-base border-t pt-2">
+                <span>الإجمالي</span>
+                <span className="text-primary tabular-nums">{receiptInvoice.total.toLocaleString()} د.ج</span>
+              </div>
+
+              <p><strong>طريقة الدفع:</strong> {receiptInvoice.paymentMethod}</p>
+
+              <div className="flex gap-2 pt-1">
+                <Button variant="outline" className="flex-1" onClick={receiptActions.download}>
+                  <Download className="w-4 h-4" />
+                  PDF
+                </Button>
+                <Button variant="outline" className="flex-1" onClick={receiptActions.print}>
+                  <Printer className="w-4 h-4" />
+                  طباعة
+                </Button>
+              </div>
+              <Button className="w-full" onClick={receiptActions.whatsapp} variant="default">
+                <Share2 className="w-4 h-4" />
+                واتساب
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 };

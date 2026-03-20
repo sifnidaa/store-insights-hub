@@ -22,15 +22,30 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const location = useLocation();
   const navigate = useNavigate();
-  const { logout, settings } = useStore();
+  const { logout, settings, role } = useStore();
+
+  const visibleNavItems = navItems.filter(item => {
+    if (role !== "seller") return true;
+    return item.url === "/pos" || item.url === "/inventory" || item.url === "/settings";
+  });
 
   return (
     <Sidebar collapsible="icon" side="right" className="border-l-0">
       <SidebarContent className="bg-sidebar text-sidebar-foreground">
         <div className="p-4 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-sidebar-primary flex items-center justify-center shrink-0">
-            <Smartphone className="w-5 h-5 text-sidebar-primary-foreground" />
-          </div>
+          {settings.logoDataUrl ? (
+            <div className="w-9 h-9 rounded-xl bg-sidebar-primary flex items-center justify-center shrink-0">
+              <img
+                src={settings.logoDataUrl}
+                alt="logo"
+                className="w-5 h-5 rounded-md object-contain"
+              />
+            </div>
+          ) : (
+            <div className="w-9 h-9 rounded-xl bg-sidebar-primary flex items-center justify-center shrink-0">
+              <Smartphone className="w-5 h-5 text-sidebar-primary-foreground" />
+            </div>
+          )}
           {!collapsed && <span className="font-bold text-lg">{settings.storeName}</span>}
         </div>
 
@@ -38,7 +53,7 @@ export function AppSidebar() {
           <SidebarGroupLabel className="text-sidebar-foreground/50 text-xs">القائمة الرئيسية</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navItems.map(item => (
+              {visibleNavItems.map(item => (
                 <SidebarMenuItem key={item.url}>
                   <SidebarMenuButton
                     asChild

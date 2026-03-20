@@ -1,13 +1,25 @@
-import React, { createContext, useContext, useState, useCallback } from "react";
+import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
 import {
   Product, Supplier, Invoice, Sale,
   initialProducts, initialSuppliers, initialInvoices, initialSales,
 } from "@/data/store-data";
 
+type Theme = "light" | "dark";
+type UserRole = "admin" | "seller";
+
+type UserAccount = {
+  id: string;
+  username: string;
+  password: string;
+  role: UserRole;
+};
+
 type StoreSettings = {
   storeName: string;
   storePhone: string;
   storeAddress: string;
+  theme: Theme;
+  logoDataUrl?: string | null;
 };
 
 type StoreContextType = {
@@ -27,6 +39,11 @@ type StoreContextType = {
   deleteInvoice: (id: string) => void;
   nextInvoiceNumber: () => string;
   isAuthenticated: boolean;
+  currentUser: UserAccount | null;
+  role: UserRole | null;
+  users: UserAccount[];
+  addUser: (u: Omit<UserAccount, "id">) => void;
+  deleteUser: (id: string) => void;
   login: (user: string, pass: string) => boolean;
   logout: () => void;
 };
@@ -40,29 +57,103 @@ export const useStore = () => {
 };
 
 export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const LS_USERS_KEY = "store-insights.users.v1";
+  const LS_SETTINGS_KEY = "store-insights.settings.v1";
+
+  const loadUsers = (): UserAccount[] => {
+    try {
+      const raw = localStorage.getItem(LS_USERS_KEY);
+      if (!raw) throw new Error("no-users");
+      const parsed = JSON.parse(raw) as UserAccount[];
+      if (!Array.isArray(parsed)) throw new Error("bad-users");
+      return parsed.filter(u => typeof u?.username === "string" && typeof u?.password === "string" && (u?.role === "admin" || u?.role === "seller"));
+    } catch {
+      return [{ id: "u-admin", username: "admin", password: "admin123", role: "admin" }];
+    }
+  };
+
+  const loadSettings = (): StoreSettings => {
+    const base: StoreSettings = {
+      storeName: "متجر التقنية",
+      storePhone: "0555000000",
+      storeAddress: "الجزائر العاصمة",
+      theme: "light",
+      logoDataUrl: null,
+    };
+    try {
+      const raw = localStorage.getItem(LS_SETTINGS_KEY);
+      if (!raw) return base;
+      const parsed = JSON.parse(raw) as Partial<StoreSettings>;
+      return {
+        ...base,
+        storeName: typeof parsed.storeName === "string" ? parsed.storeName : base.storeName,
+        storePhone: typeof parsed.storePhone === "string" ? parsed.storePhone : base.storePhone,
+        storeAddress: typeof parsed.storeAddress === "string" ? parsed.storeAddress : base.storeAddress,
+        theme: parsed.theme === "dark" ? "dark" : "light",
+        logoDataUrl: typeof parsed.logoDataUrl === "string" || parsed.logoDataUrl === null ? parsed.logoDataUrl : base.logoDataUrl,
+      };
+    } catch {
+      return base;
+    }
+  };
+
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const [suppliers, setSuppliers] = useState<Supplier[]>(initialSuppliers);
   const [invoices, setInvoices] = useState<Invoice[]>(initialInvoices);
   const [sales, setSales] = useState<Sale[]>(initialSales);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [invoiceCounter, setInvoiceCounter] = useState(1001);
-  const [settings, setSettings] = useState<StoreSettings>({
-    storeName: "متجر التقنية",
-    storePhone: "0555000000",
-    storeAddress: "الجزائر العاصمة",
-  });
+  const [users, setUsers] = useState<UserAccount[]>(loadUsers);
+  const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
+  const [settings, setSettings] = useState<StoreSettings>(() => loadSettings());
+
+  const isAuthenticated = currentUser !== null;
+  const role = currentUser?.role ?? null;
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", settings.theme === "dark");
+    try {
+      localStorage.setItem(LS_SETTINGS_KEY, JSON.stringify(settings));
+    } catch {
+      // ignore persistence errors (e.g. storage disabled)
+    }
+  }, [settings]);
 
   const updateSettings = useCallback((s: StoreSettings) => setSettings(s), []);
 
-  const login = useCallback((user: string, pass: string) => {
-    if (user === "admin" && pass === "admin123") {
-      setIsAuthenticated(true);
-      return true;
-    }
-    return false;
+  const addUser = useCallback((u: Omit<UserAccount, "id">) => {
+    setUsers(prev => {
+      if (prev.some(x => x.username === u.username)) return prev;
+      const next: UserAccount = { ...u, id: `u-${Date.now()}` };
+      const updated = [...prev, next];
+      try {
+        localStorage.setItem(LS_USERS_KEY, JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+      return updated;
+    });
   }, []);
 
-  const logout = useCallback(() => setIsAuthenticated(false), []);
+  const deleteUser = useCallback((id: string) => {
+    setUsers(prev => {
+      const updated = prev.filter(x => x.id !== id);
+      try {
+        localStorage.setItem(LS_USERS_KEY, JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+      return updated;
+    });
+  }, []);
+
+  const login = useCallback((user: string, pass: string) => {
+    const found = users.find(u => u.username === user && u.password === pass);
+    if (!found) return false;
+    setCurrentUser(found);
+    return true;
+  }, [users]);
+
+  const logout = useCallback(() => setCurrentUser(null), []);
 
   const nextInvoiceNumber = useCallback(() => {
     const num = invoiceCounter;
@@ -120,7 +211,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       addProduct, updateProduct, deleteProduct,
       addSupplier, updateSupplier, deleteSupplier,
       addInvoice, deleteInvoice, nextInvoiceNumber,
-      isAuthenticated, login, logout,
+      isAuthenticated, currentUser, role, users, addUser, deleteUser,
+      login, logout,
     }}>
       {children}
     </StoreContext.Provider>

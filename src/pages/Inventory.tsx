@@ -28,10 +28,10 @@ const Inventory = () => {
   }, [products, search, catFilter]);
 
   const [form, setForm] = useState({
-    name: "", category: categories[0], price: 0, cost: 0, stock: 0, minStock: 0, sku: "", supplier: suppliers[0]?.id || "",
+    name: "", category: categories[0], price: 0, cost: 0, stock: 0, minStock: 0, sku: "", supplier: "",
   });
 
-  const resetForm = () => setForm({ name: "", category: categories[0], price: 0, cost: 0, stock: 0, minStock: 0, sku: "", supplier: suppliers[0]?.id || "" });
+  const resetForm = () => setForm({ name: "", category: categories[0], price: 0, cost: 0, stock: 0, minStock: 0, sku: "", supplier: "" });
 
   const handleSave = () => {
     if (!form.name.trim()) { toast.error("أدخل اسم المنتج"); return; }
@@ -48,7 +48,17 @@ const Inventory = () => {
   };
 
   const openEdit = (p: Product) => {
-    setForm({ name: p.name, category: p.category, price: p.price, cost: p.cost, stock: p.stock, minStock: p.minStock, sku: p.sku, supplier: p.supplier });
+    const supplierExists = suppliers.some(s => s.id === p.supplier);
+    setForm({
+      name: p.name,
+      category: p.category,
+      price: p.price,
+      cost: p.cost,
+      stock: p.stock,
+      minStock: p.minStock,
+      sku: p.sku,
+      supplier: supplierExists ? p.supplier : "",
+    });
     setEditProduct(p);
   };
 
@@ -84,6 +94,7 @@ const Inventory = () => {
       </div>
       <Input placeholder="رمز المنتج SKU" value={form.sku} onChange={e => setForm(f => ({ ...f, sku: e.target.value }))} />
       <select className="w-full h-10 rounded-lg border bg-background px-3 text-sm" value={form.supplier} onChange={e => setForm(f => ({ ...f, supplier: e.target.value }))}>
+        <option value="">بدون مورد</option>
         {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
       </select>
       <Button onClick={handleSave} className="w-full">{editProduct ? "تحديث" : "إضافة"}</Button>
@@ -91,7 +102,7 @@ const Inventory = () => {
   );
 
   return (
-    <DashboardLayout>
+    <DashboardLayout allowedRoles={["admin", "seller"]}>
       <div className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <h1 className="text-2xl font-bold flex items-center gap-2">
@@ -125,8 +136,8 @@ const Inventory = () => {
           </select>
         </div>
 
-        {/* Table */}
-        <div className="bg-card rounded-xl border overflow-x-auto">
+        {/* Desktop Table */}
+        <div className="hidden md:block bg-card rounded-xl border overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-muted/50">
@@ -179,6 +190,74 @@ const Inventory = () => {
           </table>
           {filtered.length === 0 && (
             <p className="text-center py-8 text-muted-foreground">لا توجد منتجات</p>
+          )}
+        </div>
+
+        {/* Mobile Cards */}
+        <div className="md:hidden space-y-3">
+          {filtered.length === 0 ? (
+            <p className="text-center py-8 text-muted-foreground">لا توجد منتجات</p>
+          ) : (
+            filtered.map(p => {
+              const supplierName = suppliers.find(s => s.id === p.supplier)?.name || "بدون مورد";
+              return (
+                <div key={p.id} className="bg-card rounded-xl border p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-bold truncate">{p.name}</p>
+                      <p className="text-xs text-muted-foreground">{p.category} · {supplierName}</p>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Dialog
+                        open={editProduct?.id === p.id}
+                        onOpenChange={o => { if (!o) { setEditProduct(null); resetForm(); } }}
+                      >
+                        <DialogTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(p)}>
+                            <Pencil className="w-3.5 h-3.5" />
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader><DialogTitle>تعديل المنتج</DialogTitle></DialogHeader>
+                          <ProductForm />
+                        </DialogContent>
+                      </Dialog>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive"
+                        onClick={() => { deleteProduct(p.id); toast.success("تم حذف المنتج"); }}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground">السعر</p>
+                      <p className="font-semibold tabular-nums">{p.price} د.ج</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs text-muted-foreground">SKU</p>
+                      <p className="text-xs text-muted-foreground font-mono">{p.sku || "—"}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-xs text-muted-foreground">المخزون</p>
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                      p.stock === 0 ? "bg-destructive/10 text-destructive" :
+                      p.stock <= p.minStock ? "bg-warning/10 text-warning" :
+                      "bg-profit/10 text-profit"
+                    }`}>
+                      {p.stock === 0 && <AlertTriangle className="w-3 h-3" />}
+                      {p.stock}
+                    </span>
+                  </div>
+                </div>
+              );
+            })
           )}
         </div>
       </div>
