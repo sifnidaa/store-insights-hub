@@ -1,4 +1,4 @@
-import { LayoutDashboard, ShoppingCart, Package, FileText, Users, LogOut } from "lucide-react";
+import { LayoutDashboard, ShoppingCart, Package, FileText, Users, LogOut, Settings } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useStore } from "@/contexts/StoreContext";
@@ -14,6 +14,7 @@ const navItems = [
   { title: "المخزون", url: "/inventory", icon: Package },
   { title: "الفواتير", url: "/invoices", icon: FileText },
   { title: "الموردين", url: "/suppliers", icon: Users },
+  { title: "الإعدادات", url: "/settings", icon: Settings },
 ];
 
 export function AppSidebar() {
@@ -21,7 +22,7 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const location = useLocation();
   const navigate = useNavigate();
-  const { logout } = useStore();
+  const { logout, settings } = useStore();
 
   return (
     <Sidebar collapsible="icon" side="right" className="border-l-0">
@@ -30,7 +31,7 @@ export function AppSidebar() {
           <div className="w-9 h-9 rounded-xl bg-sidebar-primary flex items-center justify-center shrink-0">
             <Smartphone className="w-5 h-5 text-sidebar-primary-foreground" />
           </div>
-          {!collapsed && <span className="font-bold text-lg">المتجر</span>}
+          {!collapsed && <span className="font-bold text-lg">{settings.storeName}</span>}
         </div>
 
         <SidebarGroup>

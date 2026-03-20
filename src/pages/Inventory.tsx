@@ -4,12 +4,13 @@ import { useStore } from "@/contexts/StoreContext";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { categories } from "@/data/store-data";
-import { Search, Package, AlertTriangle, Plus, Pencil, Trash2 } from "lucide-react";
+import { Search, Package, AlertTriangle, Plus, Pencil, Trash2, Download } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import type { Product } from "@/data/store-data";
+import * as XLSX from "xlsx";
 
 const Inventory = () => {
   const { products, addProduct, updateProduct, deleteProduct, suppliers } = useStore();
@@ -51,6 +52,24 @@ const Inventory = () => {
     setEditProduct(p);
   };
 
+  const exportToExcel = () => {
+    const data = products.map(p => ({
+      "المنتج": p.name,
+      "القسم": p.category,
+      "سعر البيع": p.price,
+      "سعر التكلفة": p.cost,
+      "المخزون": p.stock,
+      "الحد الأدنى": p.minStock,
+      "SKU": p.sku,
+      "المورد": suppliers.find(s => s.id === p.supplier)?.name || "",
+    }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "المخزون");
+    XLSX.writeFile(wb, "inventory.xlsx");
+    toast.success("تم تحميل ملف Excel");
+  };
+
   const ProductForm = () => (
     <div className="space-y-3">
       <Input placeholder="اسم المنتج" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
@@ -79,15 +98,20 @@ const Inventory = () => {
             <Package className="w-6 h-6 text-inventory" />
             المخزون
           </h1>
-          <Dialog open={isAddOpen} onOpenChange={o => { setIsAddOpen(o); if (!o) resetForm(); }}>
-            <DialogTrigger asChild>
-              <Button size="sm"><Plus className="w-4 h-4" /> إضافة منتج</Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader><DialogTitle>إضافة منتج جديد</DialogTitle></DialogHeader>
-              <ProductForm />
-            </DialogContent>
-          </Dialog>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={exportToExcel}>
+              <Download className="w-4 h-4" /> تصدير Excel
+            </Button>
+            <Dialog open={isAddOpen} onOpenChange={o => { setIsAddOpen(o); if (!o) resetForm(); }}>
+              <DialogTrigger asChild>
+                <Button size="sm"><Plus className="w-4 h-4" /> إضافة منتج</Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader><DialogTitle>إضافة منتج جديد</DialogTitle></DialogHeader>
+                <ProductForm />
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
         <div className="flex flex-col sm:flex-row gap-2">
@@ -119,7 +143,7 @@ const Inventory = () => {
                 <tr key={p.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
                   <td className="p-3 font-medium">{p.name}</td>
                   <td className="p-3 hidden sm:table-cell text-muted-foreground">{p.category}</td>
-                  <td className="p-3 tabular-nums">{p.price} ر.س</td>
+                  <td className="p-3 tabular-nums">{p.price} د.ج</td>
                   <td className="p-3">
                     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
                       p.stock === 0 ? "bg-destructive/10 text-destructive" :

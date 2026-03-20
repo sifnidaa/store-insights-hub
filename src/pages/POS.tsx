@@ -6,11 +6,12 @@ import { Button } from "@/components/ui/button";
 import { categories, Product } from "@/data/store-data";
 import { Search, Plus, Minus, Trash2, ShoppingCart, Check } from "lucide-react";
 import { toast } from "sonner";
+import Calculator from "@/components/Calculator";
 
 type CartItem = { product: Product; quantity: number };
 
 const POS = () => {
-  const { products, addInvoice } = useStore();
+  const { products, addInvoice, nextInvoiceNumber } = useStore();
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("الكل");
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -63,8 +64,9 @@ const POS = () => {
 
   const checkout = () => {
     if (cart.length === 0) { toast.error("السلة فارغة"); return; }
+    const invNumber = nextInvoiceNumber();
     const inv = {
-      id: `inv-${Date.now()}`,
+      id: invNumber,
       date: new Date().toISOString(),
       items: cart.map(c => ({ productId: c.product.id, productName: c.product.name, quantity: c.quantity, price: c.product.price })),
       total,
@@ -76,7 +78,7 @@ const POS = () => {
     setCart([]);
     setCustomerName("");
     setCustomerPhone("");
-    toast.success("تمت عملية البيع بنجاح وتم إنشاء الفاتورة");
+    toast.success(`تمت عملية البيع بنجاح - فاتورة رقم ${invNumber}`);
   };
 
   return (
@@ -119,7 +121,7 @@ const POS = () => {
                   <p className="text-xs text-muted-foreground">{p.category}</p>
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground">المخزون: {p.stock}</span>
-                    <span className="font-bold text-primary text-sm">{p.price} ر.س</span>
+                    <span className="font-bold text-primary text-sm">{p.price} د.ج</span>
                   </div>
                 </button>
               ))}
@@ -141,7 +143,7 @@ const POS = () => {
                   <div key={c.product.id} className="flex items-center gap-2 bg-muted/50 rounded-lg p-2">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{c.product.name}</p>
-                      <p className="text-xs text-muted-foreground">{c.product.price} ر.س</p>
+                      <p className="text-xs text-muted-foreground">{c.product.price} د.ج</p>
                     </div>
                     <div className="flex items-center gap-1">
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => updateQuantity(c.product.id, -1)}>
@@ -175,7 +177,7 @@ const POS = () => {
             <div className="border-t pt-3 space-y-2">
               <div className="flex justify-between font-bold text-lg">
                 <span>الإجمالي</span>
-                <span className="text-primary tabular-nums">{total.toLocaleString()} ر.س</span>
+                <span className="text-primary tabular-nums">{total.toLocaleString()} د.ج</span>
               </div>
               <Button onClick={checkout} className="w-full h-11 active:scale-[0.97] transition-transform" disabled={cart.length === 0}>
                 <Check className="w-4 h-4" />
@@ -185,6 +187,7 @@ const POS = () => {
           </div>
         </div>
       </div>
+      <Calculator />
     </DashboardLayout>
   );
 };

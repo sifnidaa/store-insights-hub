@@ -6,7 +6,7 @@
 
 @layer base {
   :root {
-    --background: 0 0% 97%;
+    --background: 210 20% 97%;
     --foreground: 220 20% 15%;
 
     --card: 0 0% 100%;
@@ -15,16 +15,16 @@
     --popover: 0 0% 100%;
     --popover-foreground: 220 20% 15%;
 
-    --primary: 168 82% 32%;
+    --primary: 217 91% 50%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 40% 96%;
+    --secondary: 214 32% 96%;
     --secondary-foreground: 220 20% 15%;
 
-    --muted: 210 20% 95%;
+    --muted: 214 20% 95%;
     --muted-foreground: 215 16% 47%;
 
-    --accent: 24 95% 53%;
+    --accent: 199 89% 48%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 72% 51%;
@@ -32,32 +32,32 @@
 
     --border: 214 20% 90%;
     --input: 214 20% 90%;
-    --ring: 168 82% 32%;
+    --ring: 217 91% 50%;
 
     --radius: 0.75rem;
 
     /* Custom semantic colors */
-    --revenue: 24 95% 53%;
-    --revenue-light: 24 95% 95%;
-    --inventory: 217 91% 60%;
-    --inventory-light: 217 91% 95%;
+    --revenue: 217 91% 50%;
+    --revenue-light: 217 91% 95%;
+    --inventory: 199 89% 48%;
+    --inventory-light: 199 89% 95%;
     --profit: 142 71% 45%;
     --profit-light: 142 71% 95%;
     --expense: 0 72% 51%;
     --expense-light: 0 72% 95%;
-    --info: 199 89% 48%;
-    --info-light: 199 89% 95%;
+    --info: 231 76% 60%;
+    --info-light: 231 76% 95%;
     --warning: 45 93% 47%;
     --warning-light: 45 93% 95%;
 
-    --sidebar-background: 220 20% 15%;
-    --sidebar-foreground: 210 20% 90%;
-    --sidebar-primary: 168 82% 42%;
+    --sidebar-background: 220 25% 14%;
+    --sidebar-foreground: 214 20% 90%;
+    --sidebar-primary: 217 91% 55%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 20% 20%;
-    --sidebar-accent-foreground: 210 20% 90%;
-    --sidebar-border: 220 20% 22%;
-    --sidebar-ring: 168 82% 42%;
+    --sidebar-accent: 220 25% 20%;
+    --sidebar-accent-foreground: 214 20% 90%;
+    --sidebar-border: 220 25% 22%;
+    --sidebar-ring: 217 91% 55%;
   }
 }
 
