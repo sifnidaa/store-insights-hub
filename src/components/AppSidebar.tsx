@@ -1,4 +1,4 @@
-import { LayoutDashboard, ShoppingCart, Package, FileText, Users, LogOut, Settings } from "lucide-react";
+import { LayoutDashboard, ShoppingCart, Package, FileText, Users, LogOut, Settings, Receipt } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useStore } from "@/contexts/StoreContext";
@@ -10,12 +10,13 @@ import {
 import { Smartphone } from "lucide-react";
 
 const navItems = [
-  { title: "لوحة التحكم", url: "/dashboard", icon: LayoutDashboard },
-  { title: "نقطة البيع", url: "/pos", icon: ShoppingCart },
-  { title: "المخزون", url: "/inventory", icon: Package },
-  { title: "الفواتير", url: "/invoices", icon: FileText },
-  { title: "الموردين", url: "/suppliers", icon: Users },
-  { title: "الإعدادات", url: "/settings", icon: Settings },
+  { title: "لوحة التحكم", url: "/dashboard", icon: LayoutDashboard, roles: ["admin", "manager"] },
+  { title: "نقطة البيع", url: "/pos", icon: ShoppingCart, roles: ["admin", "seller"] },
+  { title: "سجل المعاملات", url: "/transactions", icon: Receipt, roles: ["admin", "seller"] },
+  { title: "المخزون", url: "/inventory", icon: Package, roles: ["admin", "seller"] },
+  { title: "الفواتير", url: "/invoices", icon: FileText, roles: ["admin", "manager"] },
+  { title: "الموردين", url: "/suppliers", icon: Users, roles: ["admin", "manager"] },
+  { title: "الإعدادات", url: "/settings", icon: Settings, roles: ["admin"] },
 ];
 
 export function AppSidebar() {
@@ -27,8 +28,8 @@ export function AppSidebar() {
   const { logout, role, currentUser } = useAuth();
 
   const visibleNavItems = navItems.filter(item => {
-    if (role !== "seller") return true;
-    return item.url === "/pos" || item.url === "/inventory" || item.url === "/settings";
+    if (!role) return false;
+    return item.roles.includes(role);
   });
 
   return (
@@ -38,11 +39,7 @@ export function AppSidebar() {
         <div className={`flex items-center gap-3 border-b border-sidebar-border ${collapsed ? 'p-3 justify-center' : 'px-5 py-4'}`}>
           {settings.logoUrl ? (
             <div className={`rounded-xl overflow-hidden bg-muted/30 flex items-center justify-center shrink-0 ${collapsed ? 'w-9 h-9' : 'w-10 h-10'}`}>
-              <img
-                src={settings.logoUrl}
-                alt="logo"
-                className="w-full h-full object-contain"
-              />
+              <img src={settings.logoUrl} alt="logo" className="w-full h-full object-contain" />
             </div>
           ) : (
             <div className={`rounded-xl bg-primary flex items-center justify-center shrink-0 ${collapsed ? 'w-9 h-9' : 'w-10 h-10'}`}>
