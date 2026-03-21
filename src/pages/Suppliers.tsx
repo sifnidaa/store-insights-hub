@@ -41,7 +41,7 @@ const Suppliers = () => {
     setEditSupplier(s);
   };
 
-  const SupplierForm = () => (
+  const supplierFormJSX = (
     <div className="space-y-6 py-2">
       <div className="space-y-4">
         <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2 border-b pb-2">
@@ -116,7 +116,7 @@ const Suppliers = () => {
             </DialogTrigger>
             <DialogContent>
               <DialogHeader><DialogTitle>إضافة مورد جديد</DialogTitle></DialogHeader>
-              <SupplierForm />
+              {supplierFormJSX}
             </DialogContent>
           </Dialog>
         </div>
@@ -128,37 +128,37 @@ const Suppliers = () => {
         ) : (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {suppliers.map(s => (
-            <div key={s.id} className="bg-card rounded-xl border p-4 space-y-3 hover:shadow-md transition-shadow">
-              <div className="flex items-start justify-between">
-                <h3 className="font-bold text-base">{s.name}</h3>
-                <div className="flex gap-1">
-                  <Dialog open={editSupplier?.id === s.id} onOpenChange={o => { if (!o) { setEditSupplier(null); resetForm(); } }}>
-                    <DialogTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(s)}>
-                        <Pencil className="w-3.5 h-3.5" />
+              {suppliers.map(s => (
+                <div key={s.id} className="bg-card rounded-xl border p-4 space-y-3 hover:shadow-md transition-shadow">
+                  <div className="flex items-start justify-between">
+                    <h3 className="font-bold text-base">{s.name}</h3>
+                    <div className="flex gap-1">
+                      <Dialog open={editSupplier?.id === s.id} onOpenChange={o => { if (!o) { setEditSupplier(null); resetForm(); } }}>
+                        <DialogTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(s)}>
+                            <Pencil className="w-3.5 h-3.5" />
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader><DialogTitle>تعديل المورد</DialogTitle></DialogHeader>
+                          {supplierFormJSX}
+                        </DialogContent>
+                      </Dialog>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => { deleteSupplier(s.id); toast.success("تم حذف المورد"); }}>
+                        <Trash2 className="w-3.5 h-3.5" />
                       </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader><DialogTitle>تعديل المورد</DialogTitle></DialogHeader>
-                      <SupplierForm />
-                    </DialogContent>
-                  </Dialog>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => { deleteSupplier(s.id); toast.success("تم حذف المورد"); }}>
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </Button>
+                    </div>
+                  </div>
+                  <div className="space-y-1.5 text-sm text-muted-foreground">
+                    <p className="flex items-center gap-2"><Phone className="w-4 h-4 text-info" />{s.phone}</p>
+                    <p className="flex items-center gap-2"><Mail className="w-4 h-4 text-primary" />{s.email}</p>
+                    <p className="flex items-center gap-2"><MapPin className="w-4 h-4 text-revenue" />{s.address}</p>
+                    <p className="flex items-center gap-2"><DollarSign className="w-4 h-4 text-profit" />إجمالي المشتريات: {s.totalPurchases.toLocaleString()} د.ج</p>
+                  </div>
                 </div>
-              </div>
-              <div className="space-y-1.5 text-sm text-muted-foreground">
-                <p className="flex items-center gap-2"><Phone className="w-4 h-4 text-info" />{s.phone}</p>
-                <p className="flex items-center gap-2"><Mail className="w-4 h-4 text-primary" />{s.email}</p>
-                <p className="flex items-center gap-2"><MapPin className="w-4 h-4 text-revenue" />{s.address}</p>
-                <p className="flex items-center gap-2"><DollarSign className="w-4 h-4 text-profit" />إجمالي المشتريات: {s.totalPurchases.toLocaleString()} د.ج</p>
-              </div>
+              ))}
             </div>
-          ))}
-        </div>
-        {suppliers.length === 0 && <p className="text-center py-8 text-muted-foreground">لا يوجد موردين</p>}
+            {suppliers.length === 0 && <p className="text-center py-8 text-muted-foreground">لا يوجد موردين</p>}
           </>
         )}
       </div>
