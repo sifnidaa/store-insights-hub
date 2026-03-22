@@ -40,7 +40,27 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole 
       // Step 4: If the user doesn't have the required role, 
       // redirect them to their default landing page based on their role.
       console.warn(`Access denied: User role "${role}" is not one of [${roles.join(", ")}]`);
-      return <Navigate to={role === "seller" ? "/pos" : "/dashboard"} replace />;
+      
+      // Prevent infinite redirect loops if the user is already on their fallback route
+      // or if they have an unknown role like 'user'
+      if (role === "seller" && location.pathname !== "/pos") {
+        return <Navigate to="/pos" replace />;
+      }
+      if ((role === "admin" || role === "manager") && location.pathname !== "/dashboard") {
+        return <Navigate to="/dashboard" replace />;
+      }
+      
+      // If we reach here, it's either an infinite loop or an unauthorized role (like "user")
+      return (
+        <div className="min-h-screen flex flex-col items-center justify-center p-4 text-center space-y-4 bg-background">
+          <div className="w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center">
+            <span className="text-destructive font-bold text-2xl">!</span>
+          </div>
+          <h1 className="text-2xl font-bold">صلاحيات غير كافية</h1>
+          <p className="text-muted-foreground">حسابك الحالي لا يملك الصلاحيات اللازمة (الدور: {role}).</p>
+          <a href="/" className="text-primary hover:underline mt-4">العودة للصفحة الرئيسية</a>
+        </div>
+      );
     }
   }
 
