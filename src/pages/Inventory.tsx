@@ -3,13 +3,13 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { useStore } from "@/contexts/StoreContext";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { categories } from "@/data/store-data";
+import { categories as defaultCategories } from "@/data/store-data";
 import { Search, Package, AlertTriangle, Plus, Pencil, Trash2, Download, DollarSign } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import type { Product, Supplier } from "@/data/store-data";
+import type { Product } from "@/data/store-data";
 import * as XLSX from "xlsx";
 
 const Inventory = () => {
@@ -18,6 +18,12 @@ const Inventory = () => {
   const [catFilter, setCatFilter] = useState("الكل");
   const [editProduct, setEditProduct] = useState<Product | null>(null);
   const [isAddOpen, setIsAddOpen] = useState(false);
+
+  // Merge default categories with any custom ones from existing products
+  const allCategories = useMemo(() => {
+    const fromProducts = products.map(p => p.category).filter(Boolean);
+    return [...new Set([...defaultCategories, ...fromProducts])];
+  }, [products]);
 
   const filtered = useMemo(() => {
     return products.filter(p => {
@@ -28,22 +34,31 @@ const Inventory = () => {
   }, [products, search, catFilter]);
 
   const [form, setForm] = useState({
-    name: "", category: categories[0], price: 0, cost: 0, stock: 0, minStock: 0, sku: "", supplier: "",
+    name: "", category: defaultCategories[0], price: 0, cost: 0, stock: 0, minStock: 0, sku: "", supplier: "",
   });
+  const [customCategory, setCustomCategory] = useState("");
+  const [showCustomCategory, setShowCustomCategory] = useState(false);
 
-  const resetForm = () => setForm({ name: "", category: categories[0], price: 0, cost: 0, stock: 0, minStock: 0, sku: "", supplier: "" });
+  const resetForm = () => {
+    setForm({ name: "", category: defaultCategories[0], price: 0, cost: 0, stock: 0, minStock: 0, sku: "", supplier: "" });
+    setCustomCategory("");
+    setShowCustomCategory(false);
+  };
 
   const handleSave = async () => {
     if (!form.name.trim()) { toast.error("أدخل اسم المنتج"); return; }
+    const finalForm = showCustomCategory && customCategory.trim()
+      ? { ...form, category: customCategory.trim() }
+      : form;
     let success = false;
     if (editProduct) {
-      success = await updateProduct({ ...editProduct, ...form });
+      success = await updateProduct({ ...editProduct, ...finalForm });
       if (success) {
         toast.success("تم تحديث المنتج");
         setEditProduct(null);
       }
     } else {
-      success = await addProduct(form);
+      success = await addProduct(finalForm);
       if (success) {
         toast.success("تم إضافة المنتج");
         setIsAddOpen(false);
@@ -55,9 +70,10 @@ const Inventory = () => {
 
   const openEdit = (p: Product) => {
     const supplierExists = suppliers.some(s => s.id === p.supplier);
+    const isCustom = !defaultCategories.includes(p.category);
     setForm({
       name: p.name,
-      category: p.category,
+      category: isCustom ? "أخرى" : p.category,
       price: p.price,
       cost: p.cost,
       stock: p.stock,
@@ -65,6 +81,13 @@ const Inventory = () => {
       sku: p.sku,
       supplier: supplierExists ? p.supplier : "",
     });
+    if (isCustom) {
+      setShowCustomCategory(true);
+      setCustomCategory(p.category);
+    } else {
+      setShowCustomCategory(false);
+      setCustomCategory("");
+    }
     setEditProduct(p);
   };
 
@@ -86,7 +109,7 @@ const Inventory = () => {
     toast.success("تم تحميل ملف Excel");
   };
 
-  const ProductForm = () => (
+  const productFormJSX = (
     <div className="space-y-6 py-2">
       <div className="space-y-4">
         <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2 border-b pb-2">
@@ -99,9 +122,32 @@ const Inventory = () => {
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
             <label className="text-xs font-medium pr-1">القسم</label>
-            <select className="w-full h-10 rounded-lg border bg-background px-3 text-sm" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
-              {categories.map(c => <option key={c} value={c}>{c}</option>)}
+            <select
+              className="w-full h-10 rounded-lg border bg-background px-3 text-sm"
+              value={showCustomCategory ? "أخرى" : form.category}
+              onChange={e => {
+                if (e.target.value === "أخرى") {
+                  setShowCustomCategory(true);
+                  setForm(f => ({ ...f, category: "أخرى" }));
+                } else {
+                  setShowCustomCategory(false);
+                  setCustomCategory("");
+                  setForm(f => ({ ...f, category: e.target.value }));
+                }
+              }}
+            >
+              {allCategories.map(c => <option key={c} value={c}>{c}</option>)}
+              <option value="أخرى">+ إضافة قسم جديد</option>
             </select>
+            {showCustomCategory && (
+              <Input
+                placeholder="اسم القسم الجديد"
+                value={customCategory}
+                onChange={e => setCustomCategory(e.target.value)}
+                className="mt-1"
+                autoFocus
+              />
+            )}
           </div>
           <div className="space-y-2">
             <label className="text-xs font-medium pr-1">رمز المنتج (SKU)</label>
@@ -149,7 +195,7 @@ const Inventory = () => {
         </div>
       </div>
       
-      <Button onClick={handleSave} className="w-full h-11 text-base font-bold active:scale-[0.98] transition-transform">{editProduct ? "تحديث م بيانات المنتج" : "إضافة المنتج للمخزون"}</Button>
+      <Button onClick={handleSave} className="w-full h-11 text-base font-bold active:scale-[0.98] transition-transform">{editProduct ? "تحديث بيانات المنتج" : "إضافة المنتج للمخزون"}</Button>
     </div>
   );
 
@@ -171,7 +217,7 @@ const Inventory = () => {
               </DialogTrigger>
               <DialogContent className="max-w-md sm:max-w-lg max-h-[90vh] overflow-y-auto">
                 <DialogHeader><DialogTitle>{editProduct ? "تعديل المنتج" : "إضافة منتج جديد"}</DialogTitle></DialogHeader>
-                <ProductForm />
+                {productFormJSX}
               </DialogContent>
             </Dialog>
           </div>
@@ -184,7 +230,7 @@ const Inventory = () => {
           </div>
           <select className="h-10 rounded-lg border bg-background px-3 text-sm" value={catFilter} onChange={e => setCatFilter(e.target.value)}>
             <option value="الكل">كل الأقسام</option>
-            {categories.map(c => <option key={c} value={c}>{c}</option>)}
+            {allCategories.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
         </div>
 
@@ -196,128 +242,118 @@ const Inventory = () => {
           <>
             {/* Desktop Table */}
             <div className="hidden md:block bg-card rounded-xl border overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b bg-muted/50">
-                <th className="p-3 text-right font-medium">المنتج</th>
-                <th className="p-3 text-right font-medium hidden sm:table-cell">القسم</th>
-                <th className="p-3 text-right font-medium">السعر</th>
-                <th className="p-3 text-right font-medium">المخزون</th>
-                <th className="p-3 text-right font-medium hidden md:table-cell">SKU</th>
-                <th className="p-3 text-center font-medium">إجراءات</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map(p => (
-                <tr key={p.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
-                  <td className="p-3 font-medium">{p.name}</td>
-                  <td className="p-3 hidden sm:table-cell text-muted-foreground">{p.category}</td>
-                  <td className="p-3 tabular-nums">{p.price} د.ج</td>
-                  <td className="p-3">
-                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
-                      p.stock === 0 ? "bg-destructive/10 text-destructive" :
-                      p.stock <= p.minStock ? "bg-warning/10 text-warning" :
-                      "bg-profit/10 text-profit"
-                    }`}>
-                      {p.stock === 0 && <AlertTriangle className="w-3 h-3" />}
-                      {p.stock}
-                    </span>
-                  </td>
-                  <td className="p-3 hidden md:table-cell text-muted-foreground font-mono text-xs">{p.sku}</td>
-                  <td className="p-3">
-                    <div className="flex items-center justify-center gap-1">
-                      <Dialog open={editProduct?.id === p.id} onOpenChange={o => { if (!o) { setEditProduct(null); resetForm(); } }}>
-                        <DialogTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(p)}>
-                            <Pencil className="w-3.5 h-3.5" />
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b bg-muted/50">
+                    <th className="p-3 text-right font-medium">المنتج</th>
+                    <th className="p-3 text-right font-medium hidden sm:table-cell">القسم</th>
+                    <th className="p-3 text-right font-medium">السعر</th>
+                    <th className="p-3 text-right font-medium">المخزون</th>
+                    <th className="p-3 text-right font-medium hidden md:table-cell">SKU</th>
+                    <th className="p-3 text-center font-medium">إجراءات</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map(p => (
+                    <tr key={p.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
+                      <td className="p-3 font-medium">{p.name}</td>
+                      <td className="p-3 hidden sm:table-cell text-muted-foreground">{p.category}</td>
+                      <td className="p-3 tabular-nums">{p.price} د.ج</td>
+                      <td className="p-3">
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                          p.stock === 0 ? "bg-destructive/10 text-destructive" :
+                          p.stock <= p.minStock ? "bg-warning/10 text-warning" :
+                          "bg-profit/10 text-profit"
+                        }`}>
+                          {p.stock === 0 && <AlertTriangle className="w-3 h-3" />}
+                          {p.stock}
+                        </span>
+                      </td>
+                      <td className="p-3 hidden md:table-cell text-muted-foreground font-mono text-xs">{p.sku}</td>
+                      <td className="p-3">
+                        <div className="flex items-center justify-center gap-1">
+                          <Dialog open={editProduct?.id === p.id} onOpenChange={o => { if (!o) { setEditProduct(null); resetForm(); } }}>
+                            <DialogTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(p)}>
+                                <Pencil className="w-3.5 h-3.5" />
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                              <DialogHeader><DialogTitle>تعديل المنتج</DialogTitle></DialogHeader>
+                              {productFormJSX}
+                            </DialogContent>
+                          </Dialog>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => { deleteProduct(p.id); toast.success("تم حذف المنتج"); }}>
+                            <Trash2 className="w-3.5 h-3.5" />
                           </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                          <DialogHeader><DialogTitle>تعديل المنتج</DialogTitle></DialogHeader>
-                          <ProductForm />
-                        </DialogContent>
-                      </Dialog>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => { deleteProduct(p.id); toast.success("تم حذف المنتج"); }}>
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {filtered.length === 0 && (
-            <p className="text-center py-8 text-muted-foreground">لا توجد منتجات</p>
-          )}
-        </div>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {filtered.length === 0 && (
+                <p className="text-center py-8 text-muted-foreground">لا توجد منتجات</p>
+              )}
+            </div>
 
-        {/* Mobile Cards */}
-        <div className="md:hidden space-y-3">
-          {filtered.length === 0 ? (
-            <p className="text-center py-8 text-muted-foreground">لا توجد منتجات</p>
-          ) : (
-            filtered.map(p => {
-              const supplierName = suppliers.find(s => s.id === p.supplier)?.name || "بدون مورد";
-              return (
-                <div key={p.id} className="bg-card rounded-xl border p-4 space-y-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="font-bold truncate">{p.name}</p>
-                      <p className="text-xs text-muted-foreground">{p.category} · {supplierName}</p>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Dialog
-                        open={editProduct?.id === p.id}
-                        onOpenChange={o => { if (!o) { setEditProduct(null); resetForm(); } }}
-                      >
-                        <DialogTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(p)}>
-                            <Pencil className="w-3.5 h-3.5" />
+            {/* Mobile Cards */}
+            <div className="md:hidden space-y-3">
+              {filtered.length === 0 ? (
+                <p className="text-center py-8 text-muted-foreground">لا توجد منتجات</p>
+              ) : (
+                filtered.map(p => {
+                  const supplierName = suppliers.find(s => s.id === p.supplier)?.name || "بدون مورد";
+                  return (
+                    <div key={p.id} className="bg-card rounded-xl border p-4 space-y-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="font-bold truncate">{p.name}</p>
+                          <p className="text-xs text-muted-foreground">{p.category} · {supplierName}</p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Dialog open={editProduct?.id === p.id} onOpenChange={o => { if (!o) { setEditProduct(null); resetForm(); } }}>
+                            <DialogTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(p)}>
+                                <Pencil className="w-3.5 h-3.5" />
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                              <DialogHeader><DialogTitle>تعديل المنتج</DialogTitle></DialogHeader>
+                              {productFormJSX}
+                            </DialogContent>
+                          </Dialog>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => { deleteProduct(p.id); toast.success("تم حذف المنتج"); }}>
+                            <Trash2 className="w-3.5 h-3.5" />
                           </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                          <DialogHeader><DialogTitle>تعديل المنتج</DialogTitle></DialogHeader>
-                          <ProductForm />
-                        </DialogContent>
-                      </Dialog>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive"
-                        onClick={() => { deleteProduct(p.id); toast.success("تم حذف المنتج"); }}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <p className="text-xs text-muted-foreground">السعر</p>
+                          <p className="font-semibold tabular-nums">{p.price} د.ج</p>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-xs text-muted-foreground">SKU</p>
+                          <p className="text-xs text-muted-foreground font-mono">{p.sku || "—"}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-xs text-muted-foreground">المخزون</p>
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                          p.stock === 0 ? "bg-destructive/10 text-destructive" :
+                          p.stock <= p.minStock ? "bg-warning/10 text-warning" :
+                          "bg-profit/10 text-profit"
+                        }`}>
+                          {p.stock === 0 && <AlertTriangle className="w-3 h-3" />}
+                          {p.stock}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1">
-                      <p className="text-xs text-muted-foreground">السعر</p>
-                      <p className="font-semibold tabular-nums">{p.price} د.ج</p>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-xs text-muted-foreground">SKU</p>
-                      <p className="text-xs text-muted-foreground font-mono">{p.sku || "—"}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-xs text-muted-foreground">المخزون</p>
-                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
-                      p.stock === 0 ? "bg-destructive/10 text-destructive" :
-                      p.stock <= p.minStock ? "bg-warning/10 text-warning" :
-                      "bg-profit/10 text-profit"
-                    }`}>
-                      {p.stock === 0 && <AlertTriangle className="w-3 h-3" />}
-                      {p.stock}
-                    </span>
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
+                  );
+                })
+              )}
+            </div>
           </>
         )}
       </div>

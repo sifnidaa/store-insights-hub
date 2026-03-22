@@ -12,6 +12,7 @@ import Inventory from "./pages/Inventory";
 import Invoices from "./pages/Invoices";
 import Suppliers from "./pages/Suppliers";
 import Settings from "./pages/Settings";
+import Transactions from "./pages/Transactions";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -63,6 +64,14 @@ const App = () => (
                 element={
                   <ProtectedRoute requiredRole={["admin", "manager"]}>
                     <Suppliers />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/transactions" 
+                element={
+                  <ProtectedRoute requiredRole={["admin", "seller"]}>
+                    <Transactions />
                   </ProtectedRoute>
                 } 
               />

@@ -24,6 +24,7 @@ const DashboardLayout = ({
 
   if (!isAuthenticated) return <Navigate to="/" replace />;
 
+
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
@@ -38,7 +39,7 @@ const DashboardLayout = ({
                 className="w-7 h-7 rounded-md object-contain"
               />
             ) : null}
-            <h2 className="text-sm font-medium text-muted-foreground">نظام إدارة المتجر</h2>
+            <h2 className="text-sm font-medium text-muted-foreground">{settings.storeName || "نظام إدارة المتجر"}</h2>
           </header>
           <main className="flex-1 p-4 md:p-6 overflow-auto">
             {children}
