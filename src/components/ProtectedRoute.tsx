@@ -1,12 +1,7 @@
-/**
- * Protected Route Component
- * 
- * This component acts as a gatekeeper for routes that require authentication.
- * It checks if the user is logged in and whether they have the required role.
- */
 import React from "react";
-import { Navigate, useLocation } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 import { useAuth, UserRole } from "@/contexts/AuthContext";
+import { ShieldAlert } from "lucide-react";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -14,10 +9,8 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole }) => {
-  const { isAuthenticated, isLoadingAuth, role } = useAuth();
-  const location = useLocation();
+  const { isAuthenticated, isLoadingAuth, role, logout } = useAuth();
 
-  // Step 1: Show a loading spinner while the initial session is being verified
   if (isLoadingAuth) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -26,45 +19,38 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requiredRole 
     );
   }
 
-  // Step 2: If the user is NOT authenticated, redirect to the login page
   if (!isAuthenticated) {
-    // We save the current location in the navigation state so we can redirect back
-    // after a successful login.
-    return <Navigate to="/login" state={{ from: location }} replace />;
+    return <Navigate to="/login" replace />;
   }
 
-  // Step 3: If a specific role is required, verify the user's role
   if (requiredRole) {
     const roles = Array.isArray(requiredRole) ? requiredRole : [requiredRole];
     if (role && !roles.includes(role)) {
-      // Step 4: If the user doesn't have the required role, 
-      // redirect them to their default landing page based on their role.
-      console.warn(`Access denied: User role "${role}" is not one of [${roles.join(", ")}]`);
-      
-      // Prevent infinite redirect loops if the user is already on their fallback route
-      // or if they have an unknown role like 'user'
-      if (role === "seller" && location.pathname !== "/pos") {
-        return <Navigate to="/pos" replace />;
-      }
-      if ((role === "admin" || role === "manager") && location.pathname !== "/dashboard") {
-        return <Navigate to="/dashboard" replace />;
-      }
-      
-      // If we reach here, it's either an infinite loop or an unauthorized role (like "user")
       return (
         <div className="min-h-screen flex flex-col items-center justify-center p-4 text-center space-y-4 bg-background">
-          <div className="w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center">
-            <span className="text-destructive font-bold text-2xl">!</span>
+          <div className="w-20 h-20 bg-destructive/10 rounded-full flex items-center justify-center">
+            <ShieldAlert className="w-10 h-10 text-destructive" />
           </div>
           <h1 className="text-2xl font-bold">صلاحيات غير كافية</h1>
-          <p className="text-muted-foreground">حسابك الحالي لا يملك الصلاحيات اللازمة (الدور: {role}).</p>
-          <a href="/" className="text-primary hover:underline mt-4">العودة للصفحة الرئيسية</a>
+          <p className="text-muted-foreground max-w-sm">
+            حسابك الحالي لا يملك الصلاحيات اللازمة للوصول إلى هذه الصفحة (الرتبة: {role}).
+          </p>
+          <div className="flex gap-4 mt-6">
+            <a href="/" className="px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 transition-colors">
+              العودة للرئيسية
+            </a>
+            <button 
+              onClick={() => logout().then(() => window.location.href = "/login")}
+              className="px-4 py-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground rounded transition-colors"
+            >
+              تسجيل خروج
+            </button>
+          </div>
         </div>
       );
     }
   }
 
-  // Step 5: If all checks pass, render the protected children component
   return <>{children}</>;
 };
 
