@@ -68,10 +68,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     let mounted = true;
+    let subscription: { unsubscribe: () => void } | null = null;
 
-    const initialize = async () => {
+    const initializeAuth = async () => {
       try {
+        // Step 1: Explicitly await the initial session fetch
         const { data: { session } } = await supabase.auth.getSession();
+        
         if (session?.user && mounted) {
           const user = await fetchProfile(session.user.id, session.user.email || "");
           if (mounted) setCurrentUser(user);
@@ -83,25 +86,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } finally {
         if (mounted) setIsLoadingAuth(false);
       }
+
+      // Step 2: Only after the initial fetch is fully resolved, subscribe to changes.
+      // This strictly avoids race conditions on browser locks in Supabase JS.
+      if (mounted) {
+        const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
+          if (event === 'INITIAL_SESSION') return;
+
+          if (session?.user) {
+            const user = await fetchProfile(session.user.id, session.user.email || "");
+            if (mounted) setCurrentUser(user);
+          } else {
+            if (mounted) setCurrentUser(null);
+          }
+          if (mounted) setIsLoadingAuth(false);
+        });
+        subscription = data.subscription;
+      }
     };
 
-    initialize();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'INITIAL_SESSION') return; // Handled by initialize()
-
-      if (session?.user) {
-        const user = await fetchProfile(session.user.id, session.user.email || "");
-        if (mounted) setCurrentUser(user);
-      } else {
-        if (mounted) setCurrentUser(null);
-      }
-      if (mounted) setIsLoadingAuth(false);
-    });
+    initializeAuth();
 
     return () => {
       mounted = false;
-      subscription.unsubscribe();
+      if (subscription) {
+        subscription.unsubscribe();
+      }
     };
   }, []);
 
@@ -122,8 +132,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = async () => {
-    await supabase.auth.signOut();
-    setCurrentUser(null);
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.error("Logout error", err);
+    } finally {
+      setCurrentUser(null);
+    }
   };
 
   const resetPasswordForEmail = async (email: string, redirectTo: string) => {

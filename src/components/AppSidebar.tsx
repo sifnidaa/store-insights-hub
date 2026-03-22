@@ -94,7 +94,16 @@ export function AppSidebar() {
           </SidebarMenuItem>
           <SidebarMenuItem>
             <SidebarMenuButton
-              onClick={async () => { await logout(); navigate("/"); }}
+              onClick={async (e) => {
+                e.preventDefault();
+                try {
+                  await logout();
+                } catch(error) {
+                  console.error(error);
+                } finally {
+                  navigate("/");
+                }
+              }}
               className="text-muted-foreground hover:text-destructive h-10 rounded-lg"
             >
               <LogOut className="w-5 h-5 shrink-0" />

@@ -34,3 +34,4 @@ dist-ssr
 # Netlify
 .netlify
 dist
+*.txt
