@@ -31,10 +31,13 @@ const Login = () => {
    */
   useEffect(() => {
     if (isAuthenticated && role) {
-      // Sellers go to POS, Admins/Managers go to Dashboard
-      navigate(role === "seller" ? "/pos" : "/dashboard");
+      // Check if there's a specific page they were trying to access
+      const from = (location.state as any)?.from?.pathname;
+      const defaultDashboard = role === "seller" ? "/pos" : "/dashboard";
+      
+      navigate(from || defaultDashboard, { replace: true });
     }
-  }, [isAuthenticated, role, navigate]);
+  }, [isAuthenticated, role, navigate, location]);
 
   /**
    * Form Submission Handler

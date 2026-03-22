@@ -23,10 +23,6 @@ const DashboardLayout = ({
   }
 
   if (!isAuthenticated) return <Navigate to="/" replace />;
-  if (allowedRoles && role && !allowedRoles.includes(role)) {
-    // Sellers should land on a page they can use; admins go to dashboard.
-    return <Navigate to={role === "seller" ? "/pos" : "/dashboard"} replace />;
-  }
 
   return (
     <SidebarProvider>

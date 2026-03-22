@@ -145,6 +145,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log("Auth: State change event:", event);
       
+      // Ignore initial session as it's handled by initAuth
+      // This prevents premature isLoadingAuth(false) which causes flash of logout
+      if (event === 'INITIAL_SESSION') {
+        return;
+      }
+      
       if (session?.user) {
         // Handle login or token refresh
         const userData = await fetchProfile(session.user.id, session.user.email || "");
